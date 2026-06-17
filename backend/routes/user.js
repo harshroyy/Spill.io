@@ -78,9 +78,10 @@ router.post("/sign-in", async (req, res) => {
         const token = jwt.sign(
             {id: existingUser._id, email: existingUser.email}, 
             process.env.JWT_SECRET, 
-            {expiresIn: "7d"}
+            {expiresIn: "30d"}
         );
 
+        
         res.cookie("podcasterUserToken", token, {
             httpOnly: true,
             maxAge: 30*24*60*60*1000, // 30 days
@@ -101,7 +102,7 @@ router.post("/sign-in", async (req, res) => {
 });
 
 // User Logout
-router.post("/logout", (req, res) => {
+router.post("/logout", async (req, res) => {
     try {
         res.clearCookie("podcasterUserToken", {
             httpOnly: true,
@@ -113,7 +114,7 @@ router.post("/logout", (req, res) => {
 });
 
 // Check Cookie present or not
-router.get("/check-cookie", (req, res) => {
+router.get("/check-cookie", async (req, res) => {
     try {
         const token = req.cookies.podcasterUserToken;
         if (!token) {
