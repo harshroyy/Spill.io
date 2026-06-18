@@ -2,6 +2,7 @@ import express from "express";
 import User from "../models/user.js";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import authMiddleware from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
@@ -9,29 +10,29 @@ const router = express.Router();
 router.post("/sign-up", async (req, res) => {
     try {
         const { username, email, password } = req.body;
-        if(!username || !email || !password) {
+        if (!username || !email || !password) {
             return res
-            .status(400)
-            .json({ message: "All fields are required" });
+                .status(400)
+                .json({ message: "All fields are required" });
         }
-        if(username.length < 5) {
+        if (username.length < 5) {
             return res
-            .status(400)
-            .json({ message: "Username must be at least 5 characters" });
+                .status(400)
+                .json({ message: "Username must be at least 5 characters" });
         }
-        if(password.length < 6) {
+        if (password.length < 6) {
             return res
-            .status(400)
-            .json({ message: "Password must be at least 6 characters" });
+                .status(400)
+                .json({ message: "Password must be at least 6 characters" });
         }
 
         // check user exists or not
-        const existingEmail = await User.findOne({ email : email});
-        const existingUsername = await User.findOne({ username : username});
-        if(existingEmail || existingUsername) {
+        const existingEmail = await User.findOne({ email: email });
+        const existingUsername = await User.findOne({ username: username });
+        if (existingEmail || existingUsername) {
             return res
-            .status(400)
-            .json({ message: "Email or Username already exists" });
+                .status(400)
+                .json({ message: "Email or Username already exists" });
         }
 
         // hash password
@@ -47,44 +48,44 @@ router.post("/sign-up", async (req, res) => {
         res.status(200).json({ message: "User registered successfully" });
 
     } catch (error) {
-        res.status(500).json({ message: "Error in Sign Up", error});
+        res.status(500).json({ message: "Error in Sign Up", error });
     }
 });
 
 // User Sign In
 router.post("/sign-in", async (req, res) => {
     try {
-        const {email, password} = req.body;
-        if(!email || !password) {
+        const { email, password } = req.body;
+        if (!email || !password) {
             return res
-            .status(400)
-            .json({ message: "All fields are required" });
+                .status(400)
+                .json({ message: "All fields are required" });
         }
-        const existingUser = await User.findOne({ email: email});
-        if(!existingUser) {
+        const existingUser = await User.findOne({ email: email });
+        if (!existingUser) {
             return res
-            .status(400)
-            .json({ message: "Invalid credentials" });
+                .status(400)
+                .json({ message: "Invalid credentials" });
         }
 
         const isPasswordCorrect = await bcrypt.compare(password, existingUser.password);
-        if(!isPasswordCorrect) {
+        if (!isPasswordCorrect) {
             return res
-            .status(400)
-            .json({ message: "Invalid credentials" });
+                .status(400)
+                .json({ message: "Invalid credentials" });
         }
 
         // generate JWT token
         const token = jwt.sign(
-            {id: existingUser._id, email: existingUser.email}, 
-            process.env.JWT_SECRET, 
-            {expiresIn: "30d"}
+            { id: existingUser._id, email: existingUser.email },
+            process.env.JWT_SECRET,
+            { expiresIn: "30d" }
         );
 
-        
+
         res.cookie("podcasterUserToken", token, {
             httpOnly: true,
-            maxAge: 30*24*60*60*1000, // 30 days
+            maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
             secure: process.env.NODE_ENV === "production",
             sameSite: "None",
         });
@@ -97,7 +98,7 @@ router.post("/sign-in", async (req, res) => {
         });
     }
     catch (error) {
-        res.status(500).json({ message: "Error in Sign In", error});
+        res.status(500).json({ message: "Error in Sign In", error });
     }
 });
 
@@ -125,5 +126,22 @@ router.get("/check-cookie", async (req, res) => {
         res.status(500).json({ message: "Error in Checking Cookie", error });
     }
 });
+
+// Route to get user details from token
+router.get("/user-details", authMiddleware, async (req, res) => {
+    try {
+        const { email } = req.user;
+        const existingUser = await User.findOne({ email: email }).select(
+            "-password"
+        );
+        return res.status(200).json({ 
+            user: existingUser 
+        });
+    } catch (error) {
+        res.status(500).json({ message: "Error in fetching user details", error });
+    }
+});
+
+
 
 export default router;
